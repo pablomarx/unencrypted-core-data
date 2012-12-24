@@ -15,7 +15,7 @@
  store subclass respectively.
  
  */
-#define USE_ENCRYPTED_STORE 1
+#define USE_CUSTOM_STORE 1
 
 @interface IncrementalStoreTests : SenTestCase
 
@@ -120,21 +120,16 @@
     URL = [IncrementalStoreTests databaseURL];
     NSLog(@"Working with database at URL: %@", URL);
     NSError *error = nil;
-#if USE_ENCRYPTED_STORE
     store = [coordinator
+ #if USE_CUSTOM_STORE
              addPersistentStoreWithType:CMDEncryptedSQLiteStoreType
-             configuration:nil
-             URL:URL
-             options:options
-             error:&error];
 #else
-    store = [coordinator
              addPersistentStoreWithType:NSSQLiteStoreType
+#endif
              configuration:nil
              URL:URL
              options:options
              error:&error];
-#endif
     STAssertNotNil(store, @"Unable to add persistent store.\n%@", error);
     
     // load context
