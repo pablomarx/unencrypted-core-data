@@ -9,6 +9,20 @@
 #error This class requires ARC.
 #endif
 
+/*
+ 
+ Tell the incremental store to use an `NSIncrementalStoreNode` cache and
+ perform manual version tracking.
+ 
+ Setting the value to 0 will push node cache control to the persistent store
+ coordinator where it appears it should be. Setting the value to 1 will force
+ instances of this class to perform their own node caching and version control.
+ 
+ Default value: 0
+ 
+ */
+#define USE_CUSTOM_NODE_CACHE 1
+
 #import <sqlite3.h>
 
 #import "CMDEncryptedSQLiteStore.h"
@@ -512,15 +526,15 @@ static NSString * const CMDEncryptedSQLiteStoreMetadataTableName = @"meta";
 #pragma mark - passphrase
 
 - (BOOL)configureDatabasePassphrase {
-    NSString *passphrase = [[self options] objectForKey:CMDEncryptedSQLiteStorePassphraseKey];
-    if (passphrase) {
-        const char *string = [passphrase UTF8String];
-        int status = sqlite3_key(database, string, strlen(string));
-        string = NULL;
-        passphrase = nil;
-        return (status == SQLITE_OK);
-    }
-    passphrase = nil;
+//    NSString *passphrase = [[self options] objectForKey:CMDEncryptedSQLiteStorePassphraseKey];
+//    if (passphrase) {
+//        const char *string = [passphrase UTF8String];
+//        int status = sqlite3_key(database, string, strlen(string));
+//        string = NULL;
+//        passphrase = nil;
+//        return (status == SQLITE_OK);
+//    }
+//    passphrase = nil;
     return YES;
 }
 
@@ -788,19 +802,9 @@ static NSString * const CMDEncryptedSQLiteStoreMetadataTableName = @"meta";
     BOOL __block success = YES;
     [[request updatedObjects] enumerateObjectsUsingBlock:^(NSManagedObject *object, BOOL *stop) {
         
-/*
- 
- Tell the incremental store to use an `NSIncrementalStoreNode` cache and
- increment manual version tracking.
- 
- Default: 0
- 
- */
-#define USE_MANUAL_NODE_CACHE 1
-        
         // cache stuff
         NSManagedObjectID *objectID = [object objectID];
-#if USE_MANUAL_NODE_CACHE
+#if USE_CUSTOM_NODE_CACHE
         NSMutableDictionary *cacheChanges = [NSMutableDictionary dictionary];
         NSIncrementalStoreNode *node = [cache objectForKey:objectID];
         uint64_t version = ([node version] + 1);
@@ -835,7 +839,7 @@ static NSString * const CMDEncryptedSQLiteStoreMetadataTableName = @"meta";
         
         // return if nothing needs updating
         if ([keys count] == 0) {
-#if USE_MANUAL_NODE_CACHE
+#if USE_CUSTOM_NODE_CACHE
             [node updateWithValues:cacheChanges version:version];
 #endif
             return;
@@ -852,7 +856,7 @@ static NSString * const CMDEncryptedSQLiteStoreMetadataTableName = @"meta";
         [keys enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
             id value = [changedAttributes objectForKey:obj];
             id property = [properties objectForKey:obj];
-#if USE_MANUAL_NODE_CACHE
+#if USE_CUSTOM_NODE_CACHE
             if (value && ![value isKindOfClass:[NSNull class]]) {
                 [cacheChanges setObject:value forKey:obj];
             }
@@ -875,7 +879,7 @@ static NSString * const CMDEncryptedSQLiteStoreMetadataTableName = @"meta";
         
         // finish up
         if (statement != NULL && sqlite3_finalize(statement) == SQLITE_OK) {
-#if USE_MANUAL_NODE_CACHE
+#if USE_CUSTOM_NODE_CACHE
             [node updateWithValues:cacheChanges version:version];
 #endif
         }
